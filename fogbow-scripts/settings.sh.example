@@ -1,0 +1,21 @@
+#!/bin/bash
+MANAGER_URL="http://127.0.0.1:8182"
+USER_LOGIN="ldapuserexample"
+USER_PASS="password"
+## private key to access VMs
+SSH_PRIVATEKEY="$HOME/.ssh/id_rsa"
+## public key to inject into VMs
+SSH_PUBLICKEY="$HOME/.ssh/id_rsa.pub"
+INSTANCE_IP_TIMEOUT=10
+INSTANCE_IP_TIMEOUT_RETRIES=12
+## LDAP Public Key to generate LDAP token
+LDAP_PUBLIC_KEY="/path/to/ldapKeys/public_key.pem"
+## LDAP Private Key to generate LDAP token
+LDAP_PRIVATE_KEY="/path/to/ldapKeys/private_key.pem"
+
+## Creating LDAP token
+LDAP_TOKEN=`fogbow-cli token --create --type ldap -Dusername=$USER_LOGIN -Dpassword=$USER_PASS -DauthUrl=ldap://ldap.example.com:389 -Dbase=dc=DC,dc=DC,dc=DC,dc=DC -DprivateKey="$LDAP_PRIVATE_KEY" -DpublicKey="$LDAP_PUBLIC_KEY"`
+
+if [[ "$LDAP_TOKEN" != "" && "$LDAP_TOKEN" != "null" ]]; then
+	echo "LDAP token created."
+fi
