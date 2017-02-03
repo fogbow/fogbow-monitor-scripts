@@ -58,27 +58,38 @@ for LINE in $FOGBOW_ORDERS; do
 			echo "Monitoring instance $INSTANCE_ID ($INSTANCE_IP)"
 			if [[ "$INSTANCE_STATE" = "active" && "$INSTANCE_IP" != "null" && "$INSTANCE_IP" != "" ]]; then
 				INSTANCE_HAS_IP=true
-				echo "Executing SSH command"
+				DATE=`date`
+				echo "$DATE - Executing SSH command"
 				SSH_OUTPUT=`ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i $SSH_PRIVATEKEY fogbow@$INSTANCE_IP "echo $ORDER_ID > /tmp/$ORDER_ID.output; cat /tmp/$ORDER_ID.output"`
 				if [[ "$SSH_OUTPUT" = "$ORDER_ID" ]]; then
-					echo "$INSTANCE_ID worked fine"
+					DATE=`date`
+					echo "$DATE - $INSTANCE_ID worked fine"
 					DELETE_INSTANCE=`fogbow-cli instance --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $INSTANCE_ID`
 					if [[ "$DELETE_INSTANCE" = "Ok" ]]; then
-						echo "$INSTANCE_ID deleted."
+						DATE=`date`
+						echo "$DATE - $INSTANCE_ID deleted."
 						DELETE_ORDER=`fogbow-cli order --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
 						if [[ "$DELETE_ORDER" = "Ok" ]]; then
-							echo "$ORDER_ID deleted."
+							DATE=`date`
+							echo "$DATE - $ORDER_ID deleted."
 						fi
 					fi
 				else
-					echo "Unexpected SSH output"
+					echo "$DATE - Unexpected SSH output"
 				fi
 			fi
 			if [[ "$INSTANCE_HAS_IP" = false ]]; then
-				echo "Still waiting for the instance IP. Trying again after $INSTANCE_IP_TIMEOUT seconds."
+				DATE=`date`
+				echo "$DATE - Still waiting for the instance IP. Trying again after $INSTANCE_IP_TIMEOUT seconds."
 				sleep $INSTANCE_IP_TIMEOUT
 			fi
 			let RETRIES=RETRIES-1
 		done
+		if [[ "$INSTANCE_HAS_IP" = false ]]; then
+			DATE=`date`
+			echo "$DATE - Instance $INSTANCE_ID has reached the timeout without IP. Now deleting."
+			DELETE_INSTANCE=`fogbow-cli instance --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $INSTANCE_ID`
+			DELETE_ORDER=`fogbow-cli order --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
+		fi
 	fi;
 done;
