@@ -1,5 +1,6 @@
 #!/bin/bash
-. settings.sh
+DIRNAME=`dirname $0`
+. "$DIRNAME/settings.sh"
 
 echo "====================================================="
 echo "Monitoring manager $MANAGER_URL with user $USER_LOGIN"
