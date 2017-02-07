@@ -1,0 +1,3 @@
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+1 1 * * * ubuntu bash /home/ubuntu/git/fogbow-monitor-scripts/fogbow-scripts/fogbow-monitoring-create-instances.sh > /var/www/downloads.fogbowcloud.org/fogbow-monitoring/fogbow/create_instances_`date +"\%y_\%h_\%d_\%H_\%M"`.log 2>&1
