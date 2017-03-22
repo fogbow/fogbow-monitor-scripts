@@ -1,0 +1,7 @@
+manager="lsd.manager.naf.lsd.ufcg.edu.br"
+compute
+network
+storage
+manager="azure.lsd.ufcg.edu.br"
+compute
+storage

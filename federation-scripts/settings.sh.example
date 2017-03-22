@@ -1,0 +1,27 @@
+## List of managers and its services to monitor
+MANAGERS_TO_MONITOR=
+
+# Manager url
+MANAGER_URL=
+# Number of orders
+COUNT_ORDERS=
+# Order requirements
+ORDER_REQUIREMENTS=
+
+# Fogbow cli path
+FOGBOW_CLI_PATH=
+
+## token plugin
+TOKEN_PLUGIN=
+
+## database configuration
+DATABASE_NAME=
+DATABASE_USER=
+DATABASE_PASSWORD=
+
+## private key to access VMs
+SSH_PRIVATEKEY=
+## public key to inject into VMs
+SSH_PUBLICKEY=
+INSTANCE_IP_TIMEOUT=10
+INSTANCE_IP_TIMEOUT_RETRIES=12
