@@ -2,59 +2,85 @@
 DIRNAME=`dirname $0`
 
 function createOrders {
+	echo "Creating $COUNT_ORDERS orders ..."
 	## Creating compute orders
-	if [[ -z $ORDER_REQUIREMENTS]]; then
+	if [[ -z "$ORDER_REQUIREMENTS" ]]; then
 		REQUIREMENTS="Glue2CloudComputeManagerID==\"$MANAGER_LOCATION\""
 	else 
 		REQUIREMENTS=$ORDER_REQUIREMENTS" && Glue2CloudComputeManagerID==\"$MANAGER_LOCATION\""
 	fi
 
-	echo "Creating $COUNT_ORDERS orders ..."
-	FOGBOW_ORDERS=`$FOGBOW_CLI_PATH order --create --n $COUNT_ORDERS --url "$MANAGER_URL" --auth-token "$LDAP_TOKEN" --requirements $REQUIREMENTS --image $ORDER_IMAGE --public-key "$SSH_PUBLICKEY" --resource-kind compute`
-	echo $FOGBOW_ORDERS > /tmp/current_orders	
+	CREATE_ORDER_COMMAND="$FOGBOW_CLI_PATH order --create --n $COUNT_ORDERS --url $MANAGER_URL --auth-token $MANAGER_TOKEN --requirements $REQUIREMENTS --image $ORDER_IMAGE --public-key $SSH_PUBLICKEY --resource-kind compute"
+	echo "Execution create order command: "$CREATE_ORDER_COMMAND
+	FOGBOW_ORDERS=`$CREATE_ORDER_COMMAND`
+	CURRENT_ORDERS_PATH="/tmp/current_orders"
+	echo $FOGBOW_ORDERS > $CURRENT_ORDERS_PATH	
+
+	AMOUNT_CURRENT_ORDERS=`wc -l $CURRENT_ORDERS_PATH`
+	if [[ $AMOUNT_CURRENT_ORDERS != $COUNT_ORDERS* ]]; then
+		echo "Error while creating orders:"$FOGBOW_ORDERS
+		exit 1
+	else
+		echo "Orders creation ok."
+		cat $CURRENT_ORDERS_PATH
+	fi
 }
 
+function getOrderIdByLocationLine {
+	CONST_ORDER_LENGHT=36
+	LINE_VALUE=$1
+	# echo $LINE_VALUE
+
+	LENGHT_LINE=${#LINE_VALUE}
+	INIT_LINE_REPLACE=$(( $LENGHT_LINE - $CONST_ORDER_LENGHT))
+	REPLACED_ORDER_ID=${LINE_VALUE:INIT_LINE_REPLACE:CONST_ORDER_LENGHT}
+	echo $REPLACED_ORDER_ID
+}
+
+## Getting info about each order and checking if it is fulfilled
 function monitoringStatusOrder {
-	## Getting info about each order
+	echo "Monitoring order status."
 	ALL_FULFILLED=false
-	while [[ "$ALL_FULFILLED" = false ]]; do
-		echo "Starting monitoring ..."
+	while [[ "$ALL_FULFILLED" = false ]]; do		
 		ALL_FULFILLED=true
 		for LINE in $FOGBOW_ORDERS; do 
 			if [[ "$LINE" != "X-OCCI-Location:" ]]; then 
-				ORDER_ID=`echo $LINE | sed 's/http:\/\/10.11.4.234:8182\/order\///'`
-				ORDER_DETAILS=`$FOGBOW_CLI_PATH order --get --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
+				ORDER_ID=`getOrderIdByLocationLine $LINE`
+				GET_ORDER_COMMAND="$FOGBOW_CLI_PATH order --get --url $MANAGER_URL --auth-token $MANAGER_TOKEN --id $ORDER_ID"
+				echo "Execution create order command: "$GET_ORDER_COMMAND
+				ORDER_DETAILS=`$GET_ORDER_COMMAND`
+
 				ORDER_STATE=`echo $ORDER_DETAILS | grep -oP "org.fogbowcloud.order.state=\"([a-z]*)\"" | sed 's/org.fogbowcloud.order.state="//' | sed 's/"//'`
 				INSTANCE_ID=`echo $ORDER_DETAILS | grep -oP "org.fogbowcloud.order.instance-id=\"(.*)\"" | sed 's/org.fogbowcloud.order.instance-id="//' | sed 's/"//'`
 				DATE=`date`
 				echo "$DATE - ID: $ORDER_ID - Status: $ORDER_STATE"
-				if [[ "$ORDER_STATE" = "open" || "$ORDER_STATE" = "pending" ]]; then
+				if [[ "$ORDER_STATE" = "open" || "$ORDER_STATE" = "pending" || -z "$ORDER_STATE" ]]; then
 					ALL_FULFILLED=false
 				fi
 			fi;
-		done;
-		echo "Finishing monitoring ..."
+		done;		
 		if [[ "$ALL_FULFILLED" = false ]]; then
 			echo "Some orders still open/pending. Waiting 10 seconds to verify again."
 			sleep 10
 		else
 			echo "All orders are fulfilled."
+			echo "Finishing monitoring order status ..."
 		fi
 	done	
 }
 
 function monitoringConnectionOrder {
-	## Monitoring instances to get IP and try SSH connection
+	echo "Monitoring orders with instance to get IP and try SSH connection"
 	for LINE in $FOGBOW_ORDERS; do 
 		if [[ "$LINE" != "X-OCCI-Location:" ]]; then 
-			ORDER_ID=`echo $LINE | sed 's/http:\/\/10.11.4.234:8182\/order\///'`
-			ORDER_DETAILS=`$FOGBOW_CLI_PATH order --get --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
+			ORDER_ID=`getOrderIdByLocationLine $LINE`
+			ORDER_DETAILS=`$FOGBOW_CLI_PATH order --get --url "$MANAGER_URL" --auth-token $MANAGER_TOKEN --id $ORDER_ID`
 			INSTANCE_ID=`echo $ORDER_DETAILS | grep -oP "org.fogbowcloud.order.instance-id=\"(.*)\"" | sed 's/org.fogbowcloud.order.instance-id="//' | sed 's/"//'`
 			RETRIES=$INSTANCE_IP_TIMEOUT_RETRIES
 			INSTANCE_HAS_IP=false
 			while [[ "$RETRIES" -gt 0 && "$INSTANCE_HAS_IP" = false ]]; do 
 				echo "Trying to get instance $INSTANCE_ID IP: Retries: $RETRIES"
-				INSTANCE_DETAILS=`$FOGBOW_CLI_PATH instance --get --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $INSTANCE_ID`
+				INSTANCE_DETAILS=`$FOGBOW_CLI_PATH instance --get --url "$MANAGER_URL" --auth-token $MANAGER_TOKEN --id $INSTANCE_ID`
 				INSTANCE_STATE=`echo $INSTANCE_DETAILS | grep -oP "occi.compute.state=\"([a-z]*)\"" | sed 's/occi.compute.state="//' | sed 's/"//'`
 				INSTANCE_IP=`echo $INSTANCE_DETAILS | grep -oP "org.fogbowcloud.order.ssh-public-address=\"([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3}):([0-9]{1,5})\"" | sed 's/org.fogbowcloud.order.ssh-public-address="//' | sed 's/"//' | sed 's/:/ -p /'`
 				echo "Monitoring instance $INSTANCE_ID ($INSTANCE_IP)"
@@ -66,11 +92,11 @@ function monitoringConnectionOrder {
 					if [[ "$SSH_OUTPUT" = "$ORDER_ID" ]]; then
 						DATE=`date`
 						echo "$DATE - $INSTANCE_ID worked fine"
-						DELETE_INSTANCE=`$FOGBOW_CLI_PATH instance --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $INSTANCE_ID`
+						DELETE_INSTANCE=`$FOGBOW_CLI_PATH instance --delete --url "$MANAGER_URL" --auth-token $MANAGER_TOKEN --id $INSTANCE_ID`
 						if [[ "$DELETE_INSTANCE" = "Ok" ]]; then
 							DATE=`date`
 							echo "$DATE - $INSTANCE_ID deleted."
-							DELETE_ORDER=`$FOGBOW_CLI_PATH order --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
+							DELETE_ORDER=`$FOGBOW_CLI_PATH order --delete --url "$MANAGER_URL" --auth-token $MANAGER_TOKEN --id $ORDER_ID`
 							if [[ "$DELETE_ORDER" = "Ok" ]]; then
 								DATE=`date`
 								echo "$DATE - $ORDER_ID deleted."
@@ -107,4 +133,5 @@ function monitoringCompute {
 	createOrders
 	monitoringStatusOrder
 	monitoringConnectionOrder
+
 }

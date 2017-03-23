@@ -2,29 +2,36 @@
 MANAGERS_TO_MONITOR=
 
 ## Manager url
-MANAGER_URL=
+MANAGER_URL=""
 ## Number of orders
-COUNT_ORDERS=
+COUNT_ORDERS=""
 ## Order requirements
-ORDER_REQUIREMENTS=
+## default : "Glue2RAM >= 1024"
+ORDER_REQUIREMENTS=""
 ## Order image
-ORDER_IMAGE=
+ORDER_IMAGE=""
 
 ## Fogbow cli path
-FOGBOW_CLI_PATH=
+FOGBOW_CLI_PATH=""
 
 ## token plugin
 ## types : ldap, raw-token
-TOKEN_PLUGIN=
+TOKEN_PLUGIN=""
 
 ## database configuration
-DATABASE_NAME=
-DATABASE_USER=
-DATABASE_PASSWORD=
+DATABASE_NAME=""
+DATABASE_USER=""
+DATABASE_PASSWORD=""
+DATABASE_IP=""
+DATABASE_PORT=""
 
 ## private key to access VMs
-SSH_PRIVATEKEY=
+SSH_PRIVATEKEY=""
 ## public key to inject into VMs
-SSH_PUBLICKEY=
-INSTANCE_IP_TIMEOUT=10
+SSH_PUBLICKEY=""
+
+## Monitoring compute
+# Amount of checking ssh connection tries 
 INSTANCE_IP_TIMEOUT_RETRIES=12
+# Sleep time to wait between $INSTANCE_IP_TIMEOUT_RETRIES in seconds
+INSTANCE_IP_TIMEOUT=10
