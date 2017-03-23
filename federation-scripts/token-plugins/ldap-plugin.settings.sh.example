@@ -1,5 +1,3 @@
-#!/ bin/bash
-
 # user login
 USER_LOGIN=""
 # user password

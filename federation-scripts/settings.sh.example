@@ -1,17 +1,20 @@
 ## List of managers and its services to monitor
 MANAGERS_TO_MONITOR=
 
-# Manager url
+## Manager url
 MANAGER_URL=
-# Number of orders
+## Number of orders
 COUNT_ORDERS=
-# Order requirements
+## Order requirements
 ORDER_REQUIREMENTS=
+## Order image
+ORDER_IMAGE=
 
-# Fogbow cli path
+## Fogbow cli path
 FOGBOW_CLI_PATH=
 
 ## token plugin
+## types : ldap, raw-token
 TOKEN_PLUGIN=
 
 ## database configuration

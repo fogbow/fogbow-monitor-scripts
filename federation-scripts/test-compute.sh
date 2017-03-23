@@ -3,8 +3,14 @@ DIRNAME=`dirname $0`
 
 function createOrders {
 	## Creating compute orders
+	if [[ -z $ORDER_REQUIREMENTS]]; then
+		REQUIREMENTS="Glue2CloudComputeManagerID==\"$MANAGER_LOCATION\""
+	else 
+		REQUIREMENTS=$ORDER_REQUIREMENTS" && Glue2CloudComputeManagerID==\"$MANAGER_LOCATION\""
+	fi
+
 	echo "Creating $COUNT_ORDERS orders ..."
-	FOGBOW_ORDERS=`fogbow-cli order --create --n $COUNT_ORDERS --url "$MANAGER_URL" --auth-token "$LDAP_TOKEN" --requirements "Glue2RAM >= 1024" --image fogbow-ubuntu --public-key "$SSH_PUBLICKEY" --resource-kind compute`
+	FOGBOW_ORDERS=`$FOGBOW_CLI_PATH order --create --n $COUNT_ORDERS --url "$MANAGER_URL" --auth-token "$LDAP_TOKEN" --requirements $REQUIREMENTS --image $ORDER_IMAGE --public-key "$SSH_PUBLICKEY" --resource-kind compute`
 	echo $FOGBOW_ORDERS > /tmp/current_orders	
 }
 
@@ -17,7 +23,7 @@ function monitoringStatusOrder {
 		for LINE in $FOGBOW_ORDERS; do 
 			if [[ "$LINE" != "X-OCCI-Location:" ]]; then 
 				ORDER_ID=`echo $LINE | sed 's/http:\/\/10.11.4.234:8182\/order\///'`
-				ORDER_DETAILS=`fogbow-cli order --get --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
+				ORDER_DETAILS=`$FOGBOW_CLI_PATH order --get --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
 				ORDER_STATE=`echo $ORDER_DETAILS | grep -oP "org.fogbowcloud.order.state=\"([a-z]*)\"" | sed 's/org.fogbowcloud.order.state="//' | sed 's/"//'`
 				INSTANCE_ID=`echo $ORDER_DETAILS | grep -oP "org.fogbowcloud.order.instance-id=\"(.*)\"" | sed 's/org.fogbowcloud.order.instance-id="//' | sed 's/"//'`
 				DATE=`date`
@@ -42,13 +48,13 @@ function monitoringConnectionOrder {
 	for LINE in $FOGBOW_ORDERS; do 
 		if [[ "$LINE" != "X-OCCI-Location:" ]]; then 
 			ORDER_ID=`echo $LINE | sed 's/http:\/\/10.11.4.234:8182\/order\///'`
-			ORDER_DETAILS=`fogbow-cli order --get --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
+			ORDER_DETAILS=`$FOGBOW_CLI_PATH order --get --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
 			INSTANCE_ID=`echo $ORDER_DETAILS | grep -oP "org.fogbowcloud.order.instance-id=\"(.*)\"" | sed 's/org.fogbowcloud.order.instance-id="//' | sed 's/"//'`
 			RETRIES=$INSTANCE_IP_TIMEOUT_RETRIES
 			INSTANCE_HAS_IP=false
 			while [[ "$RETRIES" -gt 0 && "$INSTANCE_HAS_IP" = false ]]; do 
 				echo "Trying to get instance $INSTANCE_ID IP: Retries: $RETRIES"
-				INSTANCE_DETAILS=`fogbow-cli instance --get --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $INSTANCE_ID`
+				INSTANCE_DETAILS=`$FOGBOW_CLI_PATH instance --get --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $INSTANCE_ID`
 				INSTANCE_STATE=`echo $INSTANCE_DETAILS | grep -oP "occi.compute.state=\"([a-z]*)\"" | sed 's/occi.compute.state="//' | sed 's/"//'`
 				INSTANCE_IP=`echo $INSTANCE_DETAILS | grep -oP "org.fogbowcloud.order.ssh-public-address=\"([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3}):([0-9]{1,5})\"" | sed 's/org.fogbowcloud.order.ssh-public-address="//' | sed 's/"//' | sed 's/:/ -p /'`
 				echo "Monitoring instance $INSTANCE_ID ($INSTANCE_IP)"
@@ -60,11 +66,11 @@ function monitoringConnectionOrder {
 					if [[ "$SSH_OUTPUT" = "$ORDER_ID" ]]; then
 						DATE=`date`
 						echo "$DATE - $INSTANCE_ID worked fine"
-						DELETE_INSTANCE=`fogbow-cli instance --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $INSTANCE_ID`
+						DELETE_INSTANCE=`$FOGBOW_CLI_PATH instance --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $INSTANCE_ID`
 						if [[ "$DELETE_INSTANCE" = "Ok" ]]; then
 							DATE=`date`
 							echo "$DATE - $INSTANCE_ID deleted."
-							DELETE_ORDER=`fogbow-cli order --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
+							DELETE_ORDER=`$FOGBOW_CLI_PATH order --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
 							if [[ "$DELETE_ORDER" = "Ok" ]]; then
 								DATE=`date`
 								echo "$DATE - $ORDER_ID deleted."
@@ -84,8 +90,8 @@ function monitoringConnectionOrder {
 			if [[ "$INSTANCE_HAS_IP" = false ]]; then
 				DATE=`date`
 				echo "$DATE - Instance $INSTANCE_ID has reached the timeout without IP. Now deleting."
-				DELETE_INSTANCE=`fogbow-cli instance --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $INSTANCE_ID`
-				DELETE_ORDER=`fogbow-cli order --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
+				DELETE_INSTANCE=`$FOGBOW_CLI_PATH instance --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $INSTANCE_ID`
+				DELETE_ORDER=`$FOGBOW_CLI_PATH order --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
 			fi
 		fi;
 	done;
