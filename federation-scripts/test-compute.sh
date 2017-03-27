@@ -1,6 +1,35 @@
 #!/bin/bash
 DIRNAME=`dirname $0`
 
+function doSomethingCreateOrderError {
+	MESSAGE="$1"
+	## Create incident
+	COMPONENT_ID=`getCachetComponentIdByManager $MANAGER_LOCATION $CONST_COMPUTE_PREFIX`
+	createCachetIncident "Incident in create orders." $MESSAGE "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE
+}
+
+function doSomethingCreateOrderOk {
+	echo
+}
+
+function doSomethingMonitoringStatusOrderFulfilled {
+	echo
+}
+
+function doSomethingMonitoringStatusOrderTimeout {
+	## Create incident
+	COMPONENT_ID=`getCachetComponentIdByManager $MANAGER_LOCATION $CONST_COMPUTE_PREFIX`
+	MESSAGE="$1"
+	createCachetIncident "Incident in monitoring status order." $MESSAGE "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE	
+}
+
+function doSomethingMonitoringConnectionOrderTimeout {
+	## Create incident
+	COMPONENT_ID=`getCachetComponentIdByManager $MANAGER_LOCATION $CONST_COMPUTE_PREFIX`
+	MESSAGE="$1"
+	createCachetIncident "Incident in monitoring instance connection." $MESSAGE "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE	
+}
+
 function createOrders {
 	echo "Creating $COUNT_ORDERS orders ..."
 	## Creating compute orders
@@ -12,16 +41,18 @@ function createOrders {
 
 	CREATE_ORDER_COMMAND="$FOGBOW_CLI_PATH order --create --n $COUNT_ORDERS --url $MANAGER_URL --auth-token $MANAGER_TOKEN --requirements $REQUIREMENTS --image $ORDER_IMAGE --public-key $SSH_PUBLICKEY --resource-kind compute"
 	echo "Execution create order command: "$CREATE_ORDER_COMMAND
-	FOGBOW_ORDERS=`$CREATE_ORDER_COMMAND`
+	FOGBOW_CREATE_ORDERS_RESPONSE=`$CREATE_ORDER_COMMAND`
 	CURRENT_ORDERS_PATH="/tmp/current_orders"
-	echo $FOGBOW_ORDERS > $CURRENT_ORDERS_PATH	
+	echo $FOGBOW_CREATE_ORDERS_RESPONSE > $CURRENT_ORDERS_PATH	
 
 	AMOUNT_CURRENT_ORDERS=`wc -l $CURRENT_ORDERS_PATH`
 	if [[ $AMOUNT_CURRENT_ORDERS != $COUNT_ORDERS* ]]; then
-		echo "Error while creating orders:"$FOGBOW_ORDERS
+		echo "Error while creating orders:"$FOGBOW_CREATE_ORDERS_RESPONSE
+		doSomethingCreateOrderError $FOGBOW_CREATE_ORDERS_RESPONSE
 		exit 1
 	else
 		echo "Orders creation ok."
+		doSomethingCreateOrderOk
 		cat $CURRENT_ORDERS_PATH
 	fi
 }
@@ -29,7 +60,6 @@ function createOrders {
 function getOrderIdByLocationLine {
 	CONST_ORDER_LENGHT=36
 	LINE_VALUE=$1
-	# echo $LINE_VALUE
 
 	LENGHT_LINE=${#LINE_VALUE}
 	INIT_LINE_REPLACE=$(( $LENGHT_LINE - $CONST_ORDER_LENGHT))
@@ -41,9 +71,11 @@ function getOrderIdByLocationLine {
 function monitoringStatusOrder {
 	echo "Monitoring order status."
 	ALL_FULFILLED=false
+	RETRIES=$FULFIELD_ORDERS_TIMEOUT_RETRIES
 	while [[ "$ALL_FULFILLED" = false ]]; do		
+		echo "Trying to check all fulfield orders: Retries: $RETRIES"
 		ALL_FULFILLED=true
-		for LINE in $FOGBOW_ORDERS; do 
+		for LINE in $FOGBOW_CREATE_ORDERS_RESPONSE; do 
 			if [[ "$LINE" != "X-OCCI-Location:" ]]; then 
 				ORDER_ID=`getOrderIdByLocationLine $LINE`
 				GET_ORDER_COMMAND="$FOGBOW_CLI_PATH order --get --url $MANAGER_URL --auth-token $MANAGER_TOKEN --id $ORDER_ID"
@@ -59,11 +91,20 @@ function monitoringStatusOrder {
 				fi
 			fi;
 		done;		
-		if [[ "$ALL_FULFILLED" = false ]]; then
-			echo "Some orders still open/pending. Waiting 10 seconds to verify again."
-			sleep 10
+		if [[ "$ALL_FULFILLED" = false ]]; then		
+			if [[ $RETRIES -eq 0 ]]; then
+				MESSAGE="Monitoring status order timeout : $FULFIELD_ORDERS_TIMEOUT_RETRIES to $FULFIELD_ORDERS_TIMEOUT seconds"
+				DATE=`date`
+				echo "$DATE - $MESSAGE"
+				doSomethingMonitoringStatusOrderTimeout $MESSAGE
+				return 1
+			fi
+			echo "Some orders still open/pending. Waiting "$FULFIELD_ORDERS_TIMEOUT" seconds to verify again."
+			sleep $FULFIELD_ORDERS_TIMEOUT				
+			let RETRIES=RETRIES-1
 		else
 			echo "All orders are fulfilled."
+			doSomethingMonitoringStatusOrderFulfilled
 			echo "Finishing monitoring order status ..."
 		fi
 	done	
@@ -71,7 +112,7 @@ function monitoringStatusOrder {
 
 function monitoringConnectionOrder {
 	echo "Monitoring orders with instance to get IP and try SSH connection"
-	for LINE in $FOGBOW_ORDERS; do 
+	for LINE in $FOGBOW_CREATE_ORDERS_RESPONSE; do 
 		if [[ "$LINE" != "X-OCCI-Location:" ]]; then 
 			ORDER_ID=`getOrderIdByLocationLine $LINE`
 			ORDER_DETAILS=`$FOGBOW_CLI_PATH order --get --url "$MANAGER_URL" --auth-token $MANAGER_TOKEN --id $ORDER_ID`
@@ -115,23 +156,25 @@ function monitoringConnectionOrder {
 			done
 			if [[ "$INSTANCE_HAS_IP" = false ]]; then
 				DATE=`date`
-				echo "$DATE - Instance $INSTANCE_ID has reached the timeout without IP. Now deleting."
+				MESSAGE="Instance $INSTANCE_ID has reached the timeout without IP. Now deleting."
+				echo "$DATE - $MESSAGE"
 				DELETE_INSTANCE=`$FOGBOW_CLI_PATH instance --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $INSTANCE_ID`
 				DELETE_ORDER=`$FOGBOW_CLI_PATH order --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
+
+				doSomethingMonitoringConnectionOrderTimeout $MESSAGE
 			fi
 		fi;
 	done;
 }
 
-
 function monitoringCompute {
 	MANAGER_LOCATION=$1
 	echo "====================================================="
 	echo "Monitoring manager: "$MANAGER_LOCATION
+	echo "Testing compute"
 	echo "====================================================="
 
 	createOrders
 	monitoringStatusOrder
 	monitoringConnectionOrder
-
 }

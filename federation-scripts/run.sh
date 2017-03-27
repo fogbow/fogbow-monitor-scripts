@@ -8,14 +8,10 @@ DIRNAME=`dirname $0`
 source "$DIRNAME/settings.sh"
 source "$DIRNAME/database.sh"
 source "$DIRNAME/token-plugins/token-util.sh"
+source "$DIRNAME/cachet/cachet.sh"
 source "$DIRNAME/test-compute.sh"
-# source "$DIRNAME/test-storage.sh"
-# source "$DIRNAME/test-network.sh"
-
-# constants
-LOG_MONITORING_COMPUTE_PATH="/tmp/monitoringCompute.log"
-LOG_MONITORING_NETWORK_PATH="/tmp/monitoringNetwork.log"
-LOG_MONITORING_STORAGE_PATH="/tmp/monitoringStorage.log"
+source "$DIRNAME/test-storage.sh"
+source "$DIRNAME/test-network.sh"
 
 EXECUTION_UUID=`uuidgen`
 echo "** Properties **"
@@ -27,31 +23,43 @@ echo "** End Properties ** "
 MANAGER_TOKEN=$(getToken)
 echo "Manager token: "$MANAGER_TOKEN
 
-#### BD add monitoring $EXECUTION_UUID
+## logs
+echo "Creating logs folder."
+LOGS_PATH="$DIRNAME/logs/$EXECUTION_UUID"
+mkdir $LOGS_PATH
+LOG_MONITORING_COMPUTE_PATH_PREFIX="$LOGS_PATH/monitoringCompute-"
+LOG_MONITORING_NETWORK_PATH_PREFIX="$LOGS_PATH/tmp/monitoringNetwork-"
+LOG_MONITORING_STORAGE_PATH_PREFIX="$LOGS_PATH/tmp/monitoringStorage-"
+echo "Logs path : "$LOGS_PATH
 
 echo "** Starting monitoring. **"
 for i in `cat $MANAGERS_TO_MONITOR`; do
 	if [[ "$i" == *"manager"* ]]; then
 		eval `echo $i`;
 		echo "Running tests on manager $manager"
+		createCachetGroupComponent $manager
 	else
 		if [[ "$i" == "compute" ]]; then
 			echo "COMPUTE: Running tests for $i on $manager"
-			monitoringCompute $manager >> $LOG_MONITORING_COMPUTE_PATH
+			createCachetComponent $MANAGER $CONST_COMPUTE_PREFIXs
+			monitoringCompute $manager >> "$LOG_MONITORING_COMPUTE_PATH_PREFIX"$manager".log"
+
 		elif [[ "$i" == "storage" ]]; then
-			# monitoringStorage $manager >>
 			echo "STORAGE: Running tests for $i on $manager"
+			monitoringStorage $manager >> "$LOG_MONITORING_STORAGE_PATH_PREFIX"$manager".log"
+			createCachetComponent $MANAGER $CONST_STORAGE_PREFIX
+			
 		elif [[ "$i" == "network" ]]; then
-			# monitoringNetwork $manager >>
 			echo "NETWORK: Running tests for $i on $manager"
+			monitoringNetwork $manager >> "$LOG_MONITORING_NETWORK_PATH_PREFIX"$manager".log"
+			createCachetComponent $MANAGER $CONST_NETWORK_PREFIX
+			
 		fi
 	fi
 done
 
-echo "Log monitoring compute: "$LOG_MONITORING_COMPUTE_PATH
-echo "Log monitoring network: "$LOG_MONITORING_NETWORK_PATH
-echo "Log monitoring storage: "$LOG_MONITORING_STORAGE_PATH
-
 echo "....................................."
-echo "End script. "
+echo "End main script."
+echo "Wait others scripts (monitoringCompute, monitoringStorage and monitoringNetwork. "
+echo "Check logs in $LOGS_PATH."
 echo "....................................."
