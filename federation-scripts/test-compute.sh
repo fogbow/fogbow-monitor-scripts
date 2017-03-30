@@ -5,7 +5,9 @@ function doSomethingCreateOrderError {
 	MESSAGE="$1"
 	## Create incident
 	COMPONENT_ID=`getCachetComponentIdByManager $MANAGER_LOCATION $CONST_COMPUTE_PREFIX`
-	createCachetIncident "Incident in create orders." $MESSAGE "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE
+	createCachetIncident "Incident in create orders." "$MESSAGE" "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE
+
+	garbageCollector
 }
 
 function doSomethingCreateOrderOk {
@@ -20,14 +22,18 @@ function doSomethingMonitoringStatusOrderTimeout {
 	## Create incident
 	COMPONENT_ID=`getCachetComponentIdByManager $MANAGER_LOCATION $CONST_COMPUTE_PREFIX`
 	MESSAGE="$1"
-	createCachetIncident "Incident in monitoring status order." $MESSAGE "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE	
+	createCachetIncident "Incident in monitoring status order." "$MESSAGE" "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE	
+
+	garbageCollector
 }
 
 function doSomethingMonitoringConnectionOrderTimeout {
 	## Create incident
 	COMPONENT_ID=`getCachetComponentIdByManager $MANAGER_LOCATION $CONST_COMPUTE_PREFIX`
 	MESSAGE="$1"
-	createCachetIncident "Incident in monitoring instance connection." $MESSAGE "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE	
+	createCachetIncident "Incident in monitoring instance connection." "$MESSAGE" "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE	
+
+	garbageCollector
 }
 
 function createOrders {
@@ -55,16 +61,6 @@ function createOrders {
 		doSomethingCreateOrderOk
 		cat $CURRENT_ORDERS_PATH
 	fi
-}
-
-function getOrderIdByLocationLine {
-	CONST_ORDER_LENGHT=36
-	LINE_VALUE=$1
-
-	LENGHT_LINE=${#LINE_VALUE}
-	INIT_LINE_REPLACE=$(( $LENGHT_LINE - $CONST_ORDER_LENGHT))
-	REPLACED_ORDER_ID=${LINE_VALUE:INIT_LINE_REPLACE:CONST_ORDER_LENGHT}
-	echo $REPLACED_ORDER_ID
 }
 
 ## Getting info about each order and checking if it is fulfilled
@@ -96,7 +92,7 @@ function monitoringStatusOrder {
 				MESSAGE="Monitoring status order timeout : $FULFIELD_ORDERS_TIMEOUT_RETRIES to $FULFIELD_ORDERS_TIMEOUT seconds"
 				DATE=`date`
 				echo "$DATE - $MESSAGE"
-				doSomethingMonitoringStatusOrderTimeout $MESSAGE
+				doSomethingMonitoringStatusOrderTimeout "$MESSAGE"
 				return 1
 			fi
 			echo "Some orders still open/pending. Waiting "$FULFIELD_ORDERS_TIMEOUT" seconds to verify again."
@@ -161,10 +157,36 @@ function monitoringConnectionOrder {
 				DELETE_INSTANCE=`$FOGBOW_CLI_PATH instance --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $INSTANCE_ID`
 				DELETE_ORDER=`$FOGBOW_CLI_PATH order --delete --url "$MANAGER_URL" --auth-token $LDAP_TOKEN --id $ORDER_ID`
 
-				doSomethingMonitoringConnectionOrderTimeout $MESSAGE
+				doSomethingMonitoringConnectionOrderTimeout "$MESSAGE"
 			fi
 		fi;
 	done;
+}
+
+function garbageCollector {
+	echo "Starting garbaeCollector"
+
+	while [[ "$ALL_FULFILLED" = false ]]; do		
+		echo "Trying to check all fulfield orders: Retries: $RETRIES"
+		ALL_FULFILLED=true
+		for LINE in $FOGBOW_CREATE_ORDERS_RESPONSE; do 
+			if [[ "$LINE" != "X-OCCI-Location:" ]]; then 
+				ORDER_ID=`getOrderIdByLocationLine $LINE`
+				GET_ORDER_COMMAND="$FOGBOW_CLI_PATH order --get --url $MANAGER_URL --auth-token $MANAGER_TOKEN --id $ORDER_ID"
+				echo "Execution create order command: "$GET_ORDER_COMMAND
+				ORDER_DETAILS=`$GET_ORDER_COMMAND`
+
+				INSTANCE_ID=`echo $ORDER_DETAILS | grep -oP "org.fogbowcloud.order.instance-id=\"(.*)\"" | sed 's/org.fogbowcloud.order.instance-id="//' | sed 's/"//'`
+
+				DATE=`date`
+				echo "$DATE - Deleting compute orders"
+				$FOGBOW_CLI_PATH order --delete --url "$MANAGER_URL" --auth-token "$MANAGER_TOKEN" --id "$ORDER_ID"
+				DATE=`date`
+				echo "$DATE - Deleting instances"
+				$FOGBOW_CLI_PATH instance --delete --url "$MANAGER_URL" --auth-token "$MANAGER_TOKEN" --id "$INSTANCE_ID"
+			fi;
+		done;		
+	done
 }
 
 function monitoringCompute {
@@ -174,7 +196,10 @@ function monitoringCompute {
 	echo "Testing compute"
 	echo "====================================================="
 
+	updateCachetComponent "$MANAGER_LOCATION" "$CONST_COMPUTE_PREFIX" "$CONST_COMPONENT_OPERATIONAL"
+
 	createOrders
 	monitoringStatusOrder
 	monitoringConnectionOrder
+	garbageCollector
 }

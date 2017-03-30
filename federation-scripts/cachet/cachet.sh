@@ -88,7 +88,9 @@ function updateCachetComponent {
   PREFIX_TYPE=$2
   STATUS=$3  
   COMPONENT_ID=`getCachetComponentIdByManager $MANAGER $PREFIX_TYPE`
-  UPDATE_C_RESULT=`echo | curl --request PUT --url http://$CACHET_IP/api/v1/components/1 --data 'status=$STATUS' -H "X-Cachet-Token: $CACHET_APP_KEY"`  
+  COMMAND="curl --request PUT --url http://$CACHET_IP/api/v1/components/$COMPONENT_ID --data \"status=$STATUS\" -H \"X-Cachet-Token: $CACHET_APP_KEY\""
+  echo "Executing command to update component: "$COMMAND
+  UPDATE_C_RESULT=`curl --request PUT --url http://$CACHET_IP/api/v1/components/$COMPONENT_ID --data "status=$STATUS" -H "X-Cachet-Token: $CACHET_APP_KEY"`
 
   echoResponse "$UPDATE_C_RESULT"
 }

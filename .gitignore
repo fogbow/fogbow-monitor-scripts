@@ -1,4 +1,5 @@
 federation-scripts/settings.sh
 federation-scripts/token-plugins/ldap-plugin.settings.sh
 federation-scripts/logs/*
+federation-scripts/manager.list
 *.log
