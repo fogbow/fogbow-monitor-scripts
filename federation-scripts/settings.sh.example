@@ -44,3 +44,9 @@ FULFIELD_ORDERS_TIMEOUT=10
 CACHET_IP=""
 # Key of cachet deploy
 CACHET_APP_KEY=""
+
+## run garbage collector in the end
+GARBAGE_COLLECTOR_END_SCRIPT=true
+# in seconds
+# default: 7200 seconds / 2 hours
+TIME_TO_START_GARBAGE_COLLECTOR_END_SCRIPT=7200

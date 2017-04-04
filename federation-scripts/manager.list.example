@@ -1,0 +1,10 @@
+manager="manager.one"
+compute
+network
+storage
+manager="manager.two"
+compute
+manager="manager.three"
+compute
+network
+

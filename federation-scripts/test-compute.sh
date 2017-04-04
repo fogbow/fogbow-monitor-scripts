@@ -165,28 +165,23 @@ function monitoringConnectionOrder {
 
 function garbageCollector {
 	echo "Starting garbaeCollector"
+	for LINE in $FOGBOW_CREATE_ORDERS_RESPONSE; do 
+		if [[ "$LINE" != "X-OCCI-Location:" ]]; then 
+			ORDER_ID=`getOrderIdByLocationLine $LINE`
+			GET_ORDER_COMMAND="$FOGBOW_CLI_PATH order --get --url $MANAGER_URL --auth-token $MANAGER_TOKEN --id $ORDER_ID"
+			echo "Execution create order command: "$GET_ORDER_COMMAND
+			ORDER_DETAILS=`$GET_ORDER_COMMAND`
 
-	while [[ "$ALL_FULFILLED" = false ]]; do		
-		echo "Trying to check all fulfield orders: Retries: $RETRIES"
-		ALL_FULFILLED=true
-		for LINE in $FOGBOW_CREATE_ORDERS_RESPONSE; do 
-			if [[ "$LINE" != "X-OCCI-Location:" ]]; then 
-				ORDER_ID=`getOrderIdByLocationLine $LINE`
-				GET_ORDER_COMMAND="$FOGBOW_CLI_PATH order --get --url $MANAGER_URL --auth-token $MANAGER_TOKEN --id $ORDER_ID"
-				echo "Execution create order command: "$GET_ORDER_COMMAND
-				ORDER_DETAILS=`$GET_ORDER_COMMAND`
+			INSTANCE_ID=`echo $ORDER_DETAILS | grep -oP "org.fogbowcloud.order.instance-id=\"(.*)\"" | sed 's/org.fogbowcloud.order.instance-id="//' | sed 's/"//'`
 
-				INSTANCE_ID=`echo $ORDER_DETAILS | grep -oP "org.fogbowcloud.order.instance-id=\"(.*)\"" | sed 's/org.fogbowcloud.order.instance-id="//' | sed 's/"//'`
-
-				DATE=`date`
-				echo "$DATE - Deleting compute orders"
-				$FOGBOW_CLI_PATH order --delete --url "$MANAGER_URL" --auth-token "$MANAGER_TOKEN" --id "$ORDER_ID"
-				DATE=`date`
-				echo "$DATE - Deleting instances"
-				$FOGBOW_CLI_PATH instance --delete --url "$MANAGER_URL" --auth-token "$MANAGER_TOKEN" --id "$INSTANCE_ID"
-			fi;
-		done;		
-	done
+			DATE=`date`
+			echo "$DATE - Deleting compute order: "$ORDER_ID
+			$FOGBOW_CLI_PATH order --delete --url "$MANAGER_URL" --auth-token "$MANAGER_TOKEN" --id "$ORDER_ID"
+			DATE=`date`
+			echo "$DATE - Deleting instances"
+			$FOGBOW_CLI_PATH instance --delete --url "$MANAGER_URL" --auth-token "$MANAGER_TOKEN" --id "$INSTANCE_ID"
+		fi;
+	done;		
 }
 
 function monitoringCompute {

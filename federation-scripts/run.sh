@@ -62,6 +62,14 @@ for i in `cat $MANAGERS_TO_MONITOR`; do
 	fi
 done
 
+if [ $GARBAGE_COLLECTOR_END_SCRIPT ]; then
+	DATE=`date`
+	echo "$DATE - Waiting $TIME_TO_START_GARBAGE_COLLECTOR_END_SCRIPT seconts to start garbageCollector again."
+	sleep $TIME_TO_START_GARBAGE_COLLECTOR_END_SCRIPT
+	echo "$DATE - Starting garbageCollector."
+	execGarbageCollector > "$LOGS_PATH/garbageCollectorEnd.log"
+fi
+
 echo "....................................."
 echo "End main script."
 echo "Wait others scripts (monitoringCompute, monitoringStorage and monitoringNetwork. "

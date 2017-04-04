@@ -8,7 +8,7 @@ function doSomethingMonitoringStatusOrderNetworkTimeout {
 	COMPONENT_ID=`getCachetComponentIdByManager $MANAGER_LOCATION_TO_NETWORK $CONST_NETWORK_PREFIX`
 	createCachetIncident "Incident in create order network." "$MESSAGE" "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE
 
-	garbageCollector
+	garbageCollectorNetwork
 }
 
 function doSomethingMonitoringStatusOrderOneTimeout {
@@ -17,7 +17,7 @@ function doSomethingMonitoringStatusOrderOneTimeout {
 	COMPONENT_ID=`getCachetComponentIdByManager $MANAGER_LOCATION_TO_NETWORK $CONST_NETWORK_PREFIX`
 	createCachetIncident "Incident in create order one." "$MESSAGE" "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE
 
-	garbageCollector
+	garbageCollectorNetwork
 }
 
 function doSomethingMonitoringStatusOrderTwoTimeout {
@@ -26,7 +26,7 @@ function doSomethingMonitoringStatusOrderTwoTimeout {
 	COMPONENT_ID=`getCachetComponentIdByManager $MANAGER_LOCATION_TO_NETWORK $CONST_NETWORK_PREFIX`
 	createCachetIncident "Incident in create order two." "$MESSAGE" "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE
 
-	garbageCollector
+	garbageCollectorNetwork
 }
 
 function doSomethingMonitoringConnectivity {
@@ -35,7 +35,7 @@ function doSomethingMonitoringConnectivity {
 	COMPONENT_ID=`getCachetComponentIdByManager $MANAGER_LOCATION_TO_NETWORK $CONST_NETWORK_PREFIX`
 	createCachetIncident "Incident in checking connectivity." "$MESSAGE" "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE	
 
-	garbageCollector
+	garbageCollectorNetwork
 }
 
 function doSomethingMonitoringPublicIpOrderTwoTimeout {
@@ -44,7 +44,7 @@ function doSomethingMonitoringPublicIpOrderTwoTimeout {
 	COMPONENT_ID=`getCachetComponentIdByManager $MANAGER_LOCATION_TO_NETWORK $CONST_NETWORK_PREFIX`
 	createCachetIncident "Incident in checking public ip VM 2." "$MESSAGE" "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE	
 
-	garbageCollector
+	garbageCollectorNetwork
 }
 
 function doSomethingMonitoringPublicIpOrderOneTimeout {
@@ -53,7 +53,7 @@ function doSomethingMonitoringPublicIpOrderOneTimeout {
 	COMPONENT_ID=`getCachetComponentIdByManager $MANAGER_LOCATION_TO_NETWORK $CONST_NETWORK_PREFIX`
 	createCachetIncident "Incident in checking public ip VM 1." "$MESSAGE" "1" $COMPONENT_ID $CONST_COMPONENT_MAJOR_OUTAGE	
 
-	garbageCollector
+	garbageCollectorNetwork
 }
 
 function createOrderNetwork {
@@ -88,7 +88,7 @@ function createOrderNetwork {
 		DATE=`date`
 		echo "$DATE - ORDER ID: $NETWORK_ORDER_ID - Status: $ORDER_STATE - NETWORK_ID: $NETWORK_ID"
 		if [[ "$NETWORK_ID" == "null" || -z "$NETWORK_ID" ]]; then
-			echo "Network order still open. Waiting 10 seconds to check again."
+			echo "Network order still open. Waiting $FULFIELD_ORDERS_TIMEOUT seconds to check again."
 			if [[ $RETRIES -eq 0 ]]; then
 				MESSAGE="Monitoring status order network timeout : $FULFIELD_ORDERS_TIMEOUT_RETRIES to $FULFIELD_ORDERS_TIMEOUT seconds"
 				DATE=`date`
@@ -148,7 +148,7 @@ function checkVMOne {
 				DATE=`date`
 				echo "$DATE - $MESSAGE"
 				doSomethingMonitoringStatusOrderOneTimeout "$MESSAGE"
-				garbageCollector
+				garbageCollectorNetwork
 				exit 1
 			fi					
 			echo "Order 1 still open/pending. Waiting "$FULFIELD_ORDERS_TIMEOUT" seconds to verify again. $RETRIES_VM1 attempts remaining."
@@ -171,7 +171,7 @@ function checkVMOne {
 						DATE=`date`
 						echo "$DATE - $MESSAGE"
 						doSomethingMonitoringPublicIpOrderOneTimeout "$MESSAGE"
-						garbageCollector
+						garbageCollectorNetwork
 						exit 1
 					fi					
 					echo "Order 1 still withou public ip. Waiting "$FULFIELD_ORDERS_TIMEOUT" seconds to verify again. $RETRIES attempts remaining."
@@ -212,7 +212,7 @@ function checkVMTwo {
 				DATE=`date`
 				echo "$DATE - $MESSAGE"
 				doSomethingMonitoringStatusOrderOneTimeout "$MESSAGE"
-				garbageCollector
+				garbageCollectorNetwork
 				exit 1
 			fi					
 			echo "Order 2 still open/pending. Waiting "$FULFIELD_ORDERS_TIMEOUT" seconds to verify again. $RETRIES_VM2 attempts remaining."
@@ -264,8 +264,8 @@ function connectivity {
 	fi
 }
 
-function garbageCollector {
-	echo "Starting garbageCollector"
+function garbageCollectorNetwork {
+	echo "Starting garbageCollectorNetwork"
 	DATE=`date`
 	echo "$DATE - Deleting compute orders"
 	$FOGBOW_CLI_PATH order --delete --url "$MANAGER_URL" --auth-token "$MANAGER_TOKEN" --id "$VM1_ORDER_ID"
@@ -304,5 +304,5 @@ function monitoringNetwork {
 	checkVMOne
 	checkVMTwo
 	connectivity
-	garbageCollector
+	garbageCollectorNetwork
 }
