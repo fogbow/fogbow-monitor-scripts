@@ -12,6 +12,7 @@ ORDER_REQUIREMENTS=""
 ORDER_IMAGE=""
 
 ## Fogbow cli path
+## example: ~/fogbow-cli/bin/fogbow-cli
 FOGBOW_CLI_PATH=""
 
 ## token plugin
